@@ -2,32 +2,25 @@ const { EventEmitter } = require('events');
 const fs = require('fs');
 
 export default class DirWatcher extends EventEmitter {
-    watchSync(path, delay = 1000) {
-        let content = [],
-            newContent = [];
-        setInterval(() => {
-            try {
-                newContent = fs.readdirSync(path);
-            } catch (e) {
-                console.error(e);
-            }
-            if (content.toString() !== newContent.toString()) {
-                this.emit('dirwatcher:changed', newContent);
-                content = newContent;
-            }
-        }, delay)
-    }
-
     watch(path, delay) {
-        let content = [];
+        let content = {};
         setInterval(() => {
             fs.readdir(path, (err, files) => {
+                const savedPathes = Object.keys(content);
                 if (err) {
                     console.error(err);
                 }
-                if (content.toString() !== files.toString()) {
+                if (
+                    (!files.every(f => savedPathes.includes(f)) &&
+                    files.length === savedPathes.length) ||
+                    !files.every(f =>
+                        fs.statSync(`${path}/${f}`).size === content[f]
+                    )
+                ) {
                     this.emit('dirwatcher:changed', path, files);
-                    content = files;
+                    files.forEach(f => {
+                        content[f] = fs.statSync(`${path}/${f}`).size;
+                    });
                 }
             });
         }, delay)
